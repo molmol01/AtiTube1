@@ -2,10 +2,12 @@ import datetime
 import base64
 from flask import render_template, url_for, flash, redirect, request, abort
 from atitube import app, db, bcrypt
-from atitube.forms import RegisterForm, LoginForm, UpdateAccount, VideoForm
+from atitube.forms import RegisterForm, LoginForm, UpdateAccount, VideoForm, UpdateVideoForm
 from atitube.models import User, Video
 from flask_login import login_user, current_user, logout_user, login_required
 from flask import send_file
+from atitube.vigenere import vigenere_encrypt, vigenere_decrypt
+key = "loprtg"
 
 
 @app.route("/")
@@ -25,7 +27,7 @@ def register():
         return redirect(url_for('home'))
     form = RegisterForm()
     if form.validate_on_submit():
-        hashed_pw = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        hashed_pw = vigenere_encrypt(form.password.data, key)
         user = User(username=form.username.data, Email=form.Email.data, password=hashed_pw)
         db.session.add(user)
         db.session.commit()
@@ -41,7 +43,7 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        if user and bcrypt.check_password_hash(user.password, form.password.data):
+        if vigenere_decrypt(user.password, key) == form.password.data.upper():
             login_user(user, remember=form.remember.data)
             next_page = request.args.get('next')
             flash(f'התחברת בהצלחה', 'success')
@@ -102,20 +104,17 @@ def update_video(video_id):
     videoo = Video.query.get_or_404(video_id)
     if videoo.author != current_user:
         abort(403)
-    form = VideoForm()
-    data = videoo.video_file
-    videoo.video_file = data
+    form = UpdateVideoForm()
     if form.validate_on_submit():
         videoo.name = form.name.data
         videoo.description = form.description.data
-        form.video.data = data
         db.session.commit()
         flash('!המידע על הסרטון עודכן בהצלחה', 'success')
         return redirect(url_for('show_video', video_id=videoo.id))
     elif request.method == 'GET':
         form.name.data = videoo.name
         form.description.data = videoo.description
-    return render_template("create_video.html", title='Update Video', form=form,
+    return render_template('update_video.html', title='Update Video', form=form,
                            legend='Update Video')
 
 
@@ -129,3 +128,4 @@ def delete_video(video_id):
     db.session.commit()
     flash("הסרטון נמחק", 'success')
     return redirect(url_for('home'))
+
