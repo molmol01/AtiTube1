@@ -64,3 +64,10 @@ class VideoForm(FlaskForm):
     submit = SubmitField('submit')
 
 
+class UpdateVideoForm(FlaskForm):
+    name = StringField('name',
+                       validators=[DataRequired(), Length(max=150)])
+    description = TextAreaField('Description')
+    submit = SubmitField('submit')
+
+
